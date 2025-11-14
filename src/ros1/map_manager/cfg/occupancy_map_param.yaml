@@ -1,0 +1,57 @@
+sensor_input_mode: 0 # 0 camera 1: lidar
+localization_mode: 0 # 0: pose (default) 1: odom
+# 机械臂适配的话题名称
+depth_image_topic: /camera/depth/image_raw
+pose_topic: /arm/pose  # 机械臂末端位姿
+odom_topic: /arm/odom  # 机械臂里程计
+# pose_topic: /mavros/local_position/pose
+# odom_topic: /mavros/local_position/odom
+
+# 机械臂机器人尺寸
+robot_size: [0.15, 0.15, 0.2]  # 机械臂末端执行器尺寸
+
+# Camera Parameters - 机械臂Realsense D435i配置
+depth_intrinsics: [386.22674560546875, 386.22674560546875, 317.3930969238281, 239.78431701660156] # fx,  fy, cx, cy realsense
+# depth_intrinsics: [554.254691191187, 554.254691191187, 320.5, 240.5] # fx,  fy, cx, cy simulation
+depth_scale_factor: 1000 # 1000 for Intel Realsense Camera
+# depth_scale_factor: 10 # simulation
+
+# 机械臂工作范围参数
+depth_min_value: 0.3
+depth_max_value: 2.0  # 机械臂工作距离较短
+depth_filter_margin: 2 # filter
+depth_skip_pixel: 2 # filter
+image_cols: 640
+image_rows: 480
+
+# 机械臂眼在手上的配置
+body_to_camera: [-0.08263826, -0.0410523, -0.00994019,  # 平移
+                -0.000818298121, -0.00189235780, -0.386455281, 0.922305841,  # 旋转四元数
+                0.0,  0.0,  0.0,  1.0]
+
+# Raycasting - 机械臂工作范围
+raycast_max_length: 2.0  # 机械臂最大工作距离
+p_hit: 0.70
+p_miss: 0.35
+p_min: 0.12
+p_max: 0.97
+p_occ: 0.80
+
+
+# Map - 机械臂工作空间
+map_resolution: 0.02  # 机械臂需要更高精度
+ground_height: -0.1 # m
+map_size: [2.0, 2.0, 2.0] # 机械臂工作空间 - 2×2×2立方体 (meter. in x y z direction)
+local_update_range: [1.0, 1.0, 1.0]  # 机械臂局部更新范围较小
+local_bound_inflation: 0.2 # 机械臂环境膨胀较小 (meter)
+clean_local_map: false
+
+# visualization - 机械臂可视化参数
+local_map_size: [1.0, 1.0, 1.0] # 机械臂局部地图 (meter. in x y z direction)
+max_height_visualization: 1.5 # 机械臂最大高度 (m)
+visualize_global_map: true
+verbose: false
+
+prebuilt_map_directory: "No"
+# prebuilt_map_directory: "path/to/static_map.pcd"
+# prebuilt_map_directory: "/home/zhefan/rl_ws/src/nav-ros/uav_simulator/worlds/generated_env/generated_env.pcd"  # 机械臂环境无需预建地图

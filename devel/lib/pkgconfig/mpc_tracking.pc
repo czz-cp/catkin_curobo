@@ -1,0 +1,8 @@
+prefix=/home/vispci/catkin/devel
+
+Name: mpc_tracking
+Description: Description of mpc_tracking
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

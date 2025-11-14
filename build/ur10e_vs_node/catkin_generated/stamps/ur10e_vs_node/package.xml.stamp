@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ur10e_vs_node</name>
+  <version>0.1.0</version>
+  <description>UR10e with D435i Visual Servoing Node</description>
+  <maintainer email="zar@example.com">zar</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- 核心 ROS 依赖 -->
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
+
+  <!-- ViSP 依赖 -->
+  <build_depend>libvisp-dev</build_depend>
+  <build_depend>librealsense2-dev</build_depend>
+
+  <!-- Eigen3 依赖 -->
+  <build_depend>libeigen3-dev</build_depend>
+
+  <!-- UR 运动学 -->
+  <build_depend>ur_kinematics</build_depend>
+
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
+   <build_export_depend>tf2_geometry_msgs</build_export_depend>
+
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>ur_kinematics</exec_depend>
+  <exec_depend>libvisp-core</exec_depend>
+  <exec_depend>librealsense2</exec_depend>
+
+</package>

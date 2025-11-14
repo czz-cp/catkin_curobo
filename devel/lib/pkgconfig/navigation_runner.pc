@@ -1,0 +1,8 @@
+prefix=/home/vispci/catkin/devel
+
+Name: navigation_runner
+Description: Description of navigation_runner
+Version: 1.0.0
+Cflags: -I/home/vispci/catkin/devel/include -I/home/vispci/catkin/src/ros1/navigation_runner/include
+Libs: -L${prefix}/lib -lnavigation_runner
+Requires: roscpp rospy std_msgs message_generation geometry_msgs

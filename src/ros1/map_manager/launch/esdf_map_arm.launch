@@ -1,0 +1,66 @@
+<launch>
+    <!-- 机械臂专用ESDF地图启动文件 -->
+    <!-- 基于NavRL的map_manager适配机械臂ESDF路径规划 -->
+
+    <!-- 加载机械臂适配的占据地图参数 -->
+    <rosparam file="$(find map_manager)/cfg/occupancy_map_param.yaml" ns="/occupancy_map" />
+
+    <!-- 加载机械臂适配的ESDF参数 -->
+    <rosparam file="$(find map_manager)/cfg/esdf_map_param.yaml" ns="/esdf_map" />
+
+    <!-- 机械臂占据地图特定参数覆盖 -->
+    <param name="/occupancy_map/pose_topic" value="/arm/pose"/>
+    <param name="/occupancy_map/odom_topic" value="/arm/odom"/>
+    <param name="/occupancy_map/depth_image_topic" value="/camera/depth/image_raw"/>
+    <param name="/occupancy_map/point_cloud_topic" value="/camera/depth/points"/>
+
+    <!-- 机械臂ESDF特定参数覆盖 -->
+    <param name="/esdf_map/pose_topic" value="/arm/pose"/>
+    <param name="/esdf_map/odom_topic" value="/arm/odom"/>
+    <param name="/esdf_map/depth_image_topic" value="/camera/depth/image_raw"/>
+    <param name="/esdf_map/point_cloud_topic" value="/camera/depth/points"/>
+
+    <!-- 机械臂工作空间参数 -->
+    <param name="/occupancy_map/map_resolution" value="0.02"/>
+    <param name="/occupancy_map/map_size" value="[2.0, 2.0, 1.5]"/>
+    <param name="/occupancy_map/local_update_range" value="[1.0, 1.0, 1.0]"/>
+
+    <param name="/esdf_map/map_resolution" value="0.02"/>
+    <param name="/esdf_map/map_size" value="[2.0, 2.0, 1.5]"/>
+    <param name="/esdf_map/local_update_range" value="[1.0, 1.0, 1.0]"/>
+    <param name="/esdf_map/local_bound_inflation" value="0.2"/>
+
+    <!-- 机械臂ESDF发布配置 -->
+    <param name="/esdf_map/esdf_publish_mode" value="3d"/>
+    <param name="/esdf_map/esdf_max_distance" value="1.5"/>
+    <param name="/esdf_map/esdf_sample_rate" value="20"/>
+    <param name="/esdf_map/esdf_voxel_skip" value="0"/>
+
+    <!-- 启动占据地图节点 (生成基础占据栅格地图) -->
+    <node pkg="map_manager" type="occupancy_map_node" name="occupancy_map_node" output="screen">
+        <remap from="/occupancy_map/pose" to="/arm/pose"/>
+        <remap from="/occupancy_map/odom" to="/arm/odom"/>
+        <remap from="/occupancy_map/depth_image" to="/camera/depth/image_raw"/>
+        <remap from="/occupancy_map/point_cloud" to="/camera/depth/points"/>
+    </node>
+
+    <!-- 启动ESDF地图节点 (使用占据地图数据生成ESDF) -->
+    <node pkg="map_manager" type="esdf_map_node" name="esdf_map_node" output="screen">
+        <remap from="/esdf_map/pose" to="/arm/pose"/>
+        <remap from="/esdf_map/odom" to="/arm/odom"/>
+        <remap from="/esdf_map/depth_image" to="/camera/depth/image_raw"/>
+        <remap from="/esdf_map/point_cloud" to="/camera/depth/points"/>
+    </node>
+
+    <!-- 机械臂ESDF服务重映射 -->
+    <remap from="/esdf_map/check_pos_collision" to="/arm_esdf_map/check_collision"/>
+    <remap from="/esdf_map/raycast" to="/arm_esdf_map/raycast"/>
+    <remap from="/esdf_map/get_distance" to="/arm_esdf_map/get_distance"/>
+    <remap from="/esdf_map/esdf" to="/arm_esdf_map/esdf"/>
+
+    <!-- 可选：启动RViz可视化（机械臂ESDF配置） -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find map_manager)/rviz/esdf_map.rviz"
+          if="$(arg use_rviz)" />
+
+</launch>

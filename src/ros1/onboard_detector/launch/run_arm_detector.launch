@@ -1,0 +1,36 @@
+<launch>
+    <!-- 机械臂专用障碍物检测器启动文件 -->
+    <!-- 基于NavRL的onboard_detector适配机械臂应用 -->
+
+    <!-- 加载机械臂适配的参数 -->
+    <rosparam file="$(find onboard_detector)/cfg/detector_param.yaml" ns="/onboard_detector" />
+
+    <!-- 机械臂特定参数覆盖 -->
+    <param name="/onboard_detector/pose_topic" value="/arm/pose"/>
+    <param name="/onboard_detector/odom_topic" value="/arm/odom"/>
+    <param name="/onboard_detector/depth_image_topic" value="/camera/depth/image_raw"/>
+    <param name="/onboard_detector/color_image_topic" value="/camera/color/image_raw"/>
+
+    <!-- 机械臂工作空间参数 -->
+    <param name="/onboard_detector/arm_workspace_max_x" value="1.0"/>
+    <param name="/onboard_detector/arm_workspace_max_y" value="1.0"/>
+    <param name="/onboard_detector/arm_workspace_max_z" value="1.5"/>
+
+    <!-- 启动检测器节点 -->
+    <node pkg="onboard_detector" type="detector_node" name="detector_node" output="screen">
+        <remap from="/onboard_detector/pose" to="/arm/pose"/>
+        <remap from="/onboard_detector/odom" to="/arm/odom"/>
+        <remap from="/onboard_detector/depth_image" to="/camera/depth/image_raw"/>
+        <remap from="/onboard_detector/color_image" to="/camera/color/image_raw"/>
+    </node>
+
+    <!-- 可选：启动RViz可视化（机械臂配置） -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find onboard_detector)/rviz/detector.rviz"
+          if="$(arg use_rviz)" />
+
+    <!-- 机械臂状态监视器（可选） -->
+    <node pkg="robot_arm_planner" type="arm_monitor.py" name="arm_monitor"
+          output="screen" if="$(arg enable_arm_monitor)"/>
+
+</launch>

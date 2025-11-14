@@ -1,0 +1,8 @@
+prefix=/home/vispci/catkin/install
+
+Name: ur10e_vs_node
+Description: Description of ur10e_vs_node
+Version: 0.1.0
+Cflags: -I${prefix}/include -I/usr/include/eigen3
+Libs: -L${prefix}/lib -lur10e_vs_node
+Requires: roscpp std_msgs sensor_msgs geometry_msgs tf2_ros tf2_geometry_msgs ur_kinematics

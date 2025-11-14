@@ -1,0 +1,38 @@
+<launch>
+    <!-- 机械臂专用占据地图启动文件 -->
+    <!-- 基于NavRL的map_manager适配机械臂应用 -->
+
+    <!-- 加载机械臂适配的参数 -->
+    <rosparam file="$(find map_manager)/cfg/occupancy_map_param.yaml" ns="/occupancy_map" />
+
+    <!-- 机械臂特定参数覆盖 -->
+    <param name="/occupancy_map/pose_topic" value="/arm/pose"/>
+    <param name="/occupancy_map/odom_topic" value="/arm/odom"/>
+    <param name="/occupancy_map/depth_image_topic" value="/camera/depth/image_raw"/>
+    <param name="/occupancy_map/point_cloud_topic" value="/camera/depth/points"/>
+
+    <!-- 机械臂工作空间参数 -->
+    <param name="/occupancy_map/map_resolution" value="0.02"/>
+    <param name="/occupancy_map/map_size" value="[2.0, 2.0, 1.5]"/>
+    <param name="/occupancy_map/local_update_range" value="[1.0, 1.0, 1.0]"/>
+    <param name="/occupancy_map/local_bound_inflation" value="0.2"/>
+
+    <!-- 启动占据地图节点 -->
+    <node pkg="map_manager" type="occupancy_map_node" name="occupancy_map_node" output="screen">
+        <remap from="/occupancy_map/pose" to="/arm/pose"/>
+        <remap from="/occupancy_map/odom" to="/arm/odom"/>
+        <remap from="/occupancy_map/depth_image" to="/camera/depth/image_raw"/>
+        <remap from="/occupancy_map/point_cloud" to="/camera/depth/points"/>
+    </node>
+
+    <!-- 机械臂碰撞检查服务重映射 -->
+    <remap from="/occupancy_map/check_pos_collision" to="/arm_map/check_collision"/>
+    <remap from="/occupancy_map/raycast" to="/arm_map/raycast"/>
+    <remap from="/occupancy_map/get_static_obstacles" to="/arm_map/get_static_obstacles"/>
+
+    <!-- 可选：启动RViz可视化（机械臂配置） -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find map_manager)/rviz/map.rviz"
+          if="$(arg use_rviz)" />
+
+</launch>

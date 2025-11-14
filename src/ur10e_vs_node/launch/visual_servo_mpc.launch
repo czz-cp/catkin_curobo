@@ -1,0 +1,50 @@
+<launch>
+    <!-- 启动UR驱动（根据实际配置修改） -->
+     <!-- Launch robot -->
+    <!-- Use group tag to specify the namespace of the robot to avoid the  occupation of the root topic /joint_states -->
+    <group ns="ur10e_robot">
+        <!-- Set the robot IP address and calibration file-->
+        <arg name="robot_ip" default="169.254.138.15" doc="IP address by which the robot can be reached."/>
+        <arg name="kinematics_config" default="/home/vispci/my_robot_calibration.yaml" doc="Kinematics config file used for calibration correction. This will be used to verify the robot's calibration is matching the robot_description."/>
+        <include file="$(find ur_robot_driver)/launch/ur10e_bringup.launch">
+        <arg name="robot_ip" value="$(arg robot_ip)"/>
+        <arg name="kinematics_config" value="$(arg kinematics_config)"/>
+        </include>
+    </group>
+
+    <!-- Remap controller service for moveit to control the robot in the namespace "ur_robot" (I don't think this is an elegant implementation, and may update it later) -->
+    <remap from="/controller_manager/list_controllers" to="/ur10e_robot/controller_manager/list_controllers"/>
+    <remap from="/pos_joint_traj_controller/follow_joint_trajectory" to="/ur10e_robot/pos_joint_traj_controller/follow_joint_trajectory"/>
+
+    <!-- Launch MoveIt -->
+    <arg name="load_robot_description" default="true"/>
+    <!-- By default, we are not in debug mode -->
+    <arg name="debug" default="false" />
+    <arg name="moveit_controller_manager" value="ros_control" />
+    <!-- Set execution mode for fake execution controllers -->
+    <arg name="fake_execution_type" default="interpolate" />
+    <arg name="pipeline" default="ompl" />
+    <!-- Load the move_group node -->
+    <include file="$(find ur10e_moveit_config)/launch/demo.launch">
+    <arg name="load_robot_description" value="$(arg load_robot_description)"/>
+    </include>
+    <!-- <node pkg="tf" type="static_transform_publisher" name="camera_to_tool0_broadcaster"
+          args="0.0865487626010899 0.0262265063656123 0.10421747229738787 -0.02786469057917842 0.01407987507649111 0.6869226864442617 0.7260595974057195 tool0 camera_link 100" />
+     -->
+
+    <!-- 相机到机械臂末端的静态变换，根据实际安装位置修改 手眼标定获得-->
+    <node pkg="tf" type="static_transform_publisher" name="camera_to_tool0_broadcaster"
+          args="-0.08263826 -0.0410523  -0.00994019, 
+           -8.18298121e-04 -1.89235780e-03 -3.86455281e-01 9.22305841e-01 tool0 camera_link 100" />
+
+    <!-- ArUco检测节点 -->
+    <node pkg="ur10e_vs_node" type="aruco_detector.py" name="aruco_detector" output="screen"/>
+    <!--node pkg="visual_servo" type="charucoboard_detector.py" name="charucoboard_detector" output="screen"/-->
+    
+
+    <!-- 视觉伺服控制器 -->
+    <node pkg="ur10e_vs_node" type="tool_mpc_servoing_arm.py" name="tool_mpc_servoing_arm" output="screen"/>
+    <!-- MPC控制器 -->
+    <node pkg="ur10e_vs_node" type="mpc_controller_arm.py" name="mpc_controller_arm" output="screen"/>
+ 
+</launch>

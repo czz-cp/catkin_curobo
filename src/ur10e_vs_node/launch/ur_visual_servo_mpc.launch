@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- 
+        Launch<launch> file for ur10e_vs_node with UR driver and MoveIt integration
+        功能：启动UR10e机器人驱动、MoveIt配置和视觉伺服节点
+    -->
+
+    <!-- Launch robot -->
+    <!-- Use group tag to specify the namespace of the robot to avoid the  occupation of the root topic /joint_states -->
+    <group ns="ur10e_robot">
+        <!-- Set the robot IP address and calibration file-->
+        <arg name="robot_ip" default="169.254.138.15" doc="IP address by which the robot can be reached."/>
+        <arg name="kinematics_config" default="/home/vispci/my_robot_calibration.yaml" doc="Kinematics config file used for calibration correction. This will be used to verify the robot's calibration is matching the robot_description."/>
+        
+        <!-- 启动的控制器：包含joint_group_vel_controller用于关节速度控制 -->
+        <arg name="controllers" default="joint_state_controller scaled_pos_joint_traj_controller speed_scaling_state_controller force_torque_sensor_controller joint_group_vel_controller" doc="Controllers that are activated by default."/>
+        <!-- 停止的控制器：移除joint_group_vel_controller，因为我们已经启动了它 -->
+        
+        
+        <include file="$(find ur_robot_driver)/launch/ur10e_bringup.launch">
+            <arg name="robot_ip" value="$(arg robot_ip)"/>
+            <arg name="kinematics_config" value="$(arg kinematics_config)"/>
+            <arg name="controllers" value="$(arg controllers)"/>
+        </include>
+    </group>
+
+    <!-- Remap controller service for moveit to control the robot in the namespace "ur_robot" (I don't think this is an elegant implementation, and may update it later) -->
+    <remap from="/controller_manager/list_controllers" to="/ur10e_robot/controller_manager/list_controllers"/>
+    <remap from="/pos_joint_traj_controller/follow_joint_trajectory" to="/ur10e_robot/pos_joint_traj_controller/follow_joint_trajectory"/>
+
+    <!-- Launch MoveIt -->
+    <arg name="load_robot_description" default="true"/>
+    <!-- By default, we are not in debug mode -->
+    <arg name="debug" default="false" />
+    <arg name="moveit_controller_manager" value="ros_control" />
+    <!-- Set execution mode for fake execution controllers -->
+    <arg name="fake_execution_type" default="interpolate" />
+    <arg name="pipeline" default="ompl" />
+    <!-- Load the move_group node -->
+    <include file="$(find ur10e_moveit_config)/launch/demo.launch">
+    <arg name="load_robot_description" value="$(arg load_robot_description)"/>
+    </include>
+
+    
+    <!-- 相机到末端的静态变换 -->
+    <node pkg="tf" type="static_transform_publisher" name="camera_to_tool0_broadcaster"
+          args="-0.08263826 -0.0410523 -0.00994019 
+           -8.18298121e-04 -1.89235780e-03 -3.86455281e-01 9.22305841e-01 tool0 camera_link 100" />
+
+    <!-- ArUco检测节点 -->
+    <node pkg="ur10e_vs_node" type="aruco_detector.py" name="aruco_detector" output="screen"/>
+    <!-- charucoboard_detector.py 暂时注释掉，文件不存在 -->
+    <!-- <node pkg="ur10e_vs_node" type="charucoboard_detector.py" name="charucoboard_detector" output="screen"/> -->
+    
+    <!-- 启动关节速度控制器（停止位置控制器以避免冲突） -->
+    <node pkg="ur10e_vs_node" type="start_vel_controller.py" name="start_vel_controller" 
+          output="screen" launch-prefix="bash -c 'sleep 10; $0 $@'"/>
+    
+    <!-- 基于cuRobo MPC的视觉伺服控制器 -->
+    <node pkg="ur10e_vs_node" type="tool_visual_servoing_mpc.py" name="visual_servo_mpc" output="screen">
+        <param name="error_threshold" value="0.005"/>        <!-- 位置误差阈值 (m) -->
+        <param name="angle_threshold" value="0.02"/>         <!-- 角度误差阈值 (rad) -->
+        <param name="mpc_step_dt" value="0.03"/>             <!-- MPC时间步长 (s) -->
+        <param name="control_rate" value="30"/>               <!-- 控制频率 (Hz) -->
+    </node>
+
+    <!-- 可选：键盘控制（调试用） -->
+    <!-- <node pkg="visual_servo" type="keyboard_control.py" name="keyboard_control" launch-prefix="xterm -e"/> -->
+</launch>
+

@@ -1,0 +1,199 @@
+from fcntl import F_DUPFD
+
+import numpy as np
+from rtde_control import RTDEControlInterface as RTDEControl
+from rtde_receive import RTDEReceiveInterface as RTDEReceive
+import time
+import Filter
+from scipy.spatial.transform import Rotation as R
+
+# 创建RTDE接收接口实例
+rtde_c = RTDEControl("169.254.138.15")
+rtde_recv = RTDEReceive("169.254.138.15")  # 机器人IP
+
+pi = np.pi
+
+# 初始化
+#q_init = [pi/2, -pi/2, pi/2, -pi, -pi/2, 0]   # 初始化机器人位置
+#rtde_c.moveJ(q_init)    # 在关节空间下线性移动到该位置
+time.sleep(1)   # 阻塞1秒使末端力传感器稳定
+
+# while True:
+#     print( rtde_recv.getActualTCPForce() )
+#     time.sleep(1)
+
+x_init = rtde_recv.getActualTCPPose()  # 当前TCP位姿就是笛卡儿空间下的初始位姿
+"""
+笛卡儿空间下的初始位姿也可以通过运动学正解得到
+# x_init = rtde_c.getForwardKinematics(q_init)
+这个值应当与rtde_recv.getActualTCPPose()得到的x_init相等
+但是经过测试，getForwardKinematics()似乎有问题，无法得到正确的x_init
+经过测试，getInverseKinematics()是正常的，使用
+# print( getInverseKinematics(x_init) )
+可以得到和q_init十分接近的值
+"""
+
+print(x_init)
+x_d   = x_init               # 将期望位姿设置为初始位姿
+dx_d  = [0, 0, 0, 0, 0, 0]   # 期望速度设置为0，即希望机械臂保持在初始位姿不动
+ddx_d = [0, 0, 0, 0, 0, 0]
+F_d   = [0, 0, 0, 0, 0, 0]
+
+rtde_c.zeroFtSensor()   # 将末端六维力传感器置零
+time.sleep(1)
+
+"""
+传感器零漂补偿
+由于传感器零点漂移较严重，所以要进行零漂补偿
+滤波器的相关函数见Filter.py
+"""
+comp_filter = Filter.MoveMeanFilter(window_size=10)   # 建立传感器力补偿的滤波器实例，使用滑动平均值滤波器，窗口长度15
+for i in range(100):    # 每0.02秒取一次末端六维力数据，循环100次，将滤波结果存在F_ext_comp中
+    F_ext_comp = comp_filter.update(rtde_recv.getActualTCPForce())
+    time.sleep(0.02)
+F_ext = rtde_recv.getActualTCPForce() - F_ext_comp  #将实测的外部力减去零漂补偿
+
+"""
+六维力传感器信号滤波
+由于传感器噪声较严重，所以要进行信号滤波
+滤波器的相关函数见Filter.py
+"""
+F_ext_filter = Filter.RCLowPassFilter(alpha=0.35, initial_value=F_ext)  # 建立外部力低通滤波器实例
+
+# 设计导纳控制参数
+"""
+M 决定加速的难易程度
+
+D 决定运动的平滑程度
+
+K 决定回到目标位置的"意愿"强度
+"""
+#实际作用：
+"""
+位置方向 (0.8)：较大的惯性，需要较大的力才能推动机器人移动
+旋转方向 (0.01)：很小的惯性，轻微的力矩就能使机器人旋转
+效果：机器人在平移方向上"较重"，在旋转方向上"较轻"
+"""
+M = [0.1, 0.1, 0.1, 0.005, 0.005, 0.005]   # 惯性矩阵   [x, y, z, rx, ry, rz]
+
+
+"""
+位置方向 (8)：较大的阻尼，运动会有明显的"粘性"，防止过冲和振荡
+旋转方向 (0.006)：很小的阻尼，旋转响应更灵敏
+效果：平移运动平稳，旋转运动灵活
+"""
+D = [1, 1, 1, 0.003, 0.003, 0.002]    # 阻尼矩阵   [x, y, z, rx, ry, rz] 
+
+
+"""
+位置方向 (80)：较高的刚度，对外力的抵抗较强，偏向位置控制
+旋转方向 (1.1-2)：较低的刚度，更容易被外力改变姿态
+效果：位置相对固定，姿态容易调整
+"""
+K = [10, 10, 10, 0.8, 0.8, 1.0]          # 刚度矩阵
+dt= 0.02                                # 离散时间，后面会用到
+
+# 由于传感器噪声严重，设置死区
+"""
+力死区 (1.5N)：小于1.5N的力被忽略，消除传感器噪声
+力矩死区 (0.015-0.3Nm)：很小的力矩死区，旋转方向更敏感
+效果：提高系统抗干扰能力，避免因传感器噪声导致的抖动
+"""
+Deadband = [1.5, 1.5, 1.5, 0.015, 0.05, 0.3]
+
+def AdmittanceControl(M, D, K, dt, x, dx, F_ext):
+    """导纳控制
+
+    参数:
+    M     -- 导纳惯性矩阵
+    D     -- 导纳阻尼矩阵
+    K     -- 导纳刚度矩阵
+    dt    -- 离散时间
+    x     -- 当前笛卡儿位姿
+    dx    -- 当前速度
+    F_ext -- 当前外部作用力
+
+    返回:
+    目标笛卡儿位姿
+    """
+    for i in range(6):  # 处理死区
+        if abs(F_ext[i]) < Deadband[i]:
+            F_ext[i] = 0
+
+    ddx_c = [0] * 6
+    dx_c = [0] * 6
+    deltax_c = [0] * 6
+    x_c = [0] * 6
+
+    x_e = [0] * 6
+    dx_e = [0] * 6
+    F_e = [0] * 6
+
+    x_e[0:3] = np.array(x_d[0:3]) - np.array(x[0:3])
+    rot_x_d = R.from_rotvec(x_d[3:6])
+    rot_x = R.from_rotvec(x[3:6])
+    x_e[3:6] = (rot_x_d * rot_x.inv()).as_rotvec()  # 计算四元数误差
+
+    dx_e[0:3] = np.array(dx_d[0:3]) - np.array(dx[0:3])
+    rot_dx_d = R.from_rotvec(dx_d[3:6])
+    rot_dx = R.from_rotvec(dx[3:6])
+    dx_e[3:6] = (rot_dx_d * rot_dx.inv()).as_rotvec()  # 计算四元数误差
+
+    F_e[0:3] = np.array(F_d[0:3]) - np.array(F_ext[0:3])
+    rot_F_d = R.from_rotvec(F_d[3:6])
+    rot_F_ext = R.from_rotvec(F_ext[3:6])
+    F_e[3:6] = (rot_F_d * rot_F_ext.inv()).as_rotvec()  # 计算四元数误差
+
+    for i in range(6):  # 位置的导纳控制
+        # 应用导纳控制公式：M*(ddx_d - ddx) + D*(dx_d - dx) + K*(x_d - x) = (F_d - F_ext)
+        ddx_c[i] = ( D[i]* dx_e[i] + K[i]* x_e[i] - F_e[i] ) / M[i] + ddx_d[i]
+        dx_c[i] = dx[i] + ddx_c[i] * dt
+        deltax_c[i] = dx_c[i] * dt
+
+    for i in range(3, 6):   # 姿态的导纳控制
+        ddx_c[i] = (D[i] * dx_e[i] + K[i] * x_e[i] - F_e[i]) / M[i] + ddx_d[i]
+        dx_c[i] = dx[i] + ddx_c[i] * dt
+        deltax_c[i] = dx_c[i] * dt
+
+    x_c[0:3] = np.array(x[0:3]) + np.array(deltax_c[0:3])               # 位置可以直接做加法
+    x_c[3:6] = ( R.from_rotvec(deltax_c[3:6]) * rot_x ).as_rotvec()    # 姿态需要左乘
+    return x_c #, dx_c, ddx_c
+
+# 初始化力补偿滤波器实例，这次对每个方向的力都设计一个补偿器
+comp = [Filter.MoveMeanFilter(window_size=3),
+        Filter.MoveMeanFilter(window_size=3),
+        Filter.MoveMeanFilter(window_size=3),
+        Filter.MoveMeanFilter(window_size=3),
+        Filter.MoveMeanFilter(window_size=3),
+        Filter.MoveMeanFilter(window_size=3),]
+
+def ExternalForceComp():
+    """外部力补偿
+    实时更新零漂补偿F_ext_comp
+    """
+    for i in range(6):
+        if abs(F_ext[i]) < Deadband[i]:
+            F_ext_comp[i] = comp[i].update(F_ext[i])
+    return
+
+
+print('Start')
+while True:
+    t_start = rtde_c.initPeriod()   # 和结尾的rtde_c.waitPeriod(t_start)一起，控制while循环时间为dt
+
+    x = rtde_recv.getActualTCPPose()    # 获取当前TCP位姿
+    dx = rtde_recv.getActualTCPSpeed()  # 获取当前TCP速度
+    F_ext = F_ext_filter.update( rtde_recv.getActualTCPForce() ) - F_ext_comp   # 获取当前外部力
+    ExternalForceComp() # 实时更新外部力补偿
+    # print('Comp', F_ext_comp)
+
+    x_c = AdmittanceControl(M, D, K, dt, x, dx, F_ext)  # 使用导纳控制器得到柔顺位姿
+    # print('F_ext', F_ext)
+    print('                                                                                            ', end='\r')
+    print('x_c', [round(x, 3) for x in x_c], end='')
+    rtde_c.servoL(x_c, 0, 0, dt, 0.03, 100) # 在笛卡儿空间中伺服到柔顺位姿
+    # 也可以逆解得到关节空间的柔顺角度，再用servoJ伺服
+    # q_c = rtde_c.getInverseKinematics(x_c)
+    # rtde_c.servoJ(q_c, 0, 0, dt, 0.03, 100)
+
+    rtde_c.waitPeriod(t_start)      # 和开头的t_start = rtde_c.initPeriod()一起，控制while循环时间为dt
