@@ -1,2 +1,2 @@
-mpc_tracking:ros1/map_manager:ros1/navigation_runner:ros1/onboard_detector:ur10e_vs_node
+mpc_tracking:robot_arm_planner:ros1/map_manager:ros1/navigation_runner:ros1/onboard_detector:ur10e_vs_node
 -DCATKIN_DEVEL_PREFIX=/home/vispci/catkin/devel -DCMAKE_INSTALL_PREFIX=/home/vispci/catkin/install -G Unix Makefiles

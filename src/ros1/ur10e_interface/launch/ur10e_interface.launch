@@ -1,0 +1,32 @@
+<launch>
+    <!-- UR10e机械臂与NavRL接口启动文件 -->
+    <!-- 将Universal_Robots_ROS_Driver的话题转换为NavRL需要的格式 -->
+
+    <!-- UR10e接口参数 -->
+    <arg name="robot_base_frame" default="base_link"/>
+    <arg name="robot_tool_frame" default="tool0_controller"/>
+    <arg name="robot_tcp_frame" default="tool0"/>
+    <arg name="publish_rate" default="100"/>
+
+    <!-- 启动UR10e位姿发布节点 -->
+    <node pkg="ur10e_interface" type="ur10e_pose_publisher" name="ur10e_pose_publisher" output="screen">
+        <param name="robot_base_frame" value="$(arg robot_base_frame)"/>
+        <param name="robot_tool_frame" value="$(arg robot_tool_frame)"/>
+        <param name="robot_tcp_frame" value="$(arg robot_tcp_frame)"/>
+        <param name="publish_rate" value="$(arg publish_rate)"/>
+    </node>
+
+    <!-- UR10e话题重映射到NavRL格式 -->
+    <remap from="/ur10e/tool0_pose" to="/arm/pose"/>
+    <remap from="/ur10e/base_odom" to="/arm/odom"/>
+
+    <!-- 静态变换发布 - 如果需要额外的坐标变换 -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="ur10e_to_arm_frame"
+          args="0 0 0 0 0 0 1 $(arg robot_base_frame) arm_base" />
+
+    <!-- 可选：启动RViz可视化 -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find ur10e_interface)/config/ur10e_interface.rviz"
+          if="$(arg use_rviz)" />
+
+</launch>

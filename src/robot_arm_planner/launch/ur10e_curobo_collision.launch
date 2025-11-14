@@ -1,0 +1,144 @@
+<launch>
+    <!-- UR10e + cuRobo防碰撞 + PD控制 完整系统 -->
+    <!-- 使用PD控制输出6维关节增量，而非轨迹控制 -->
+
+    <!-- ===== 参数配置 ===== -->
+    <arg name="robot_ip" doc="UR10e机械臂IP地址"/>
+    <arg name="use_rviz" default="true" doc="是否启动RViz"/>
+    <arg name="use_nvblox" default="false" doc="是否使用Nvblox"/>
+    <arg name="simulation" default="false" doc="是否为仿真模式"/>
+
+    <!-- ===== UR10e机械臂驱动 ===== -->
+    <include file="$(find ur_robot_driver)/launch/ur10e_bringup.launch">
+        <arg name="robot_ip" value="$(arg robot_ip)"/>
+        <!-- 使用速度控制器而非轨迹控制器 -->
+        <arg name="controllers" value="joint_state_controller joint_group_vel_controller speed_scaling_state_controller force_torque_sensor_controller"/>
+        <arg name="headless_mode" value="false"/>
+        <arg name="use_tool_communication" value="false"/>
+    </include>
+
+    <!-- ===== UR10e接口节点 (转换话题格式) ===== -->
+    <include file="$(find ur10e_interface)/launch/ur10e_interface.launch">
+        <arg name="use_rviz" value="false"/>
+    </include>
+
+    <!-- ===== RealSense D435i相机 ===== -->
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="camera_name" value="camera"/>
+        <arg name="device_type" value="d435i"/>
+        <arg name="align_depth" value="true"/>
+        <arg name="depth_width" value="640"/>
+        <arg name="depth_height" value="480"/>
+        <arg name="depth_fps" value="30"/>
+        <arg name="color_width" value="640"/>
+        <arg name="color_height" value="480"/>
+        <arg name="color_fps" value="30"/>
+        <arg name="enable_pointcloud" value="true"/>
+        <arg name="enable_sync" value="true"/>
+        <arg name="publish_tf" value="false"/>
+    </include>
+
+    <!-- 相机到工具的静态变换 (眼在手上) -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="camera_to_tool0"
+          args="-0.08263826 -0.0410523 -0.00994019
+                -0.000818298121 -0.00189235780 -0.386455281 0.922305841
+                tool0 camera_link" />
+
+    <!-- ===== NavRL地图管理器 (ESDF生成) ===== -->
+    <include file="$(find map_manager)/launch/esdf_map_arm.launch"/>
+
+    <!-- ===== NavRL动态障碍物检测器 ===== -->
+    <node pkg="onboard_detector" type="dynamicDetector" name="dynamic_detector" output="screen">
+        <rosparam file="$(find onboard_detector)/cfg/detector_param.yaml"/>
+    </node>
+
+    <!-- ===== cuRobo防碰撞规划器 ===== -->
+    <node pkg="robot_arm_planner" type="curobo_collision_planner.py" name="curobo_collision_planner" output="screen">
+        <param name="config_file" value="$(find robot_arm_planner)/config/curobo_collision_config.yaml"/>
+
+        <!-- 机械臂话题映射 -->
+        <remap from="current_pose" to="/ur10e/tool0_pose"/>
+        <remap from="goal_pose" to="/goal_pose"/>
+        <remap from="joint_states" to="/joint_states"/>
+        <remap from="planned_trajectory" to="/planned_trajectory"/>
+
+        <!-- NavRL ESDF输入 -->
+        <remap from="/arm_esdf_map/esdf" to="/arm_esdf_map/esdf"/>
+
+        <!-- 安全轨迹输出 -->
+        <remap from="collision_free_trajectory" to="/collision_free_trajectory"/>
+    </node>
+
+    <!-- ===== PD控制执行器 (NEW) ===== -->
+    <node pkg="robot_arm_planner" type="safe_trajectory_executor.py" name="pd_control_executor" output="screen">
+        <!-- PD控制参数 -->
+        <param name="Kp" value="3500.0"/>  <!-- 位置增益 -->
+        <param name="Kd" value="100.0"/>   <!-- 阻尼增益 -->
+        <param name="control_frequency" value="50.0"/>  <!-- 控制频率 -->
+        <param name="max_increment" value="0.1"/>    <!-- 最大增量限制 -->
+
+        <!-- 话题映射 -->
+        <remap from="collision_status" to="/collision_status"/>
+
+        <!-- PD控制输出到UR10e速度控制器 -->
+        <remap from="joint_group_vel_controller/command" to="/joint_group_vel_controller/command"/>
+    </node>
+
+    <!-- ===== 话题重映射确保系统集成 ===== -->
+    <remap from="/arm_esdf_map/esdf" to="/curobo_collision_planner/arm_esdf_map/esdf"/>
+    <remap from="/debug_joint_increments" to="/debug_control_output"/>
+
+    <!-- ===== cuRobo路径规划服务 (可选) ===== -->
+    <node pkg="robot_arm_planner" type="curobo_planner.py" name="curobo_planner" output="screen" if="$(arg simulation)">
+        <!-- cuRobo参数 -->
+        <param name="robot_type" value="ur10e"/>
+        <param name="planning_timeout" value="5.0"/>
+        <param name="max_planning_attempts" value="3"/>
+
+        <!-- 话题映射 -->
+        <remap from="joint_states" to="/joint_states"/>
+        <remap from="target_pose" to="/goal_pose"/>
+        <remap from="planned_trajectory" to="/planned_trajectory"/>
+        <remap from="esdf_map" to="/arm_esdf_map/esdf"/>
+        <remap from="obstacles" to="/dynamic_detector/obstacles"/>
+    </node>
+
+    <!-- ===== 可视化 ===== -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find robot_arm_planner)/config/curobo_collision.rviz"
+          if="$(arg use_rviz)" />
+
+    <!-- ===== 系统监控 ===== -->
+    <node name="system_monitor" pkg="rqt_graph" type="rqt_graph"
+          args="-f '/joint_states|/arm_esdf_map/esdf|/collision_free_trajectory|/joint_group_vel_controller/command|/debug_control_output'"
+          if="$(arg use_rviz)" />
+
+    <!-- PD控制监控 -->
+    <node name="control_monitor" pkg="rqt_plot" type="rqt_plot"
+          args="/control_status"
+          if="$(arg use_rviz)" />
+
+    <!-- 关节位置监控 -->
+    <node name="joint_monitor" pkg="rqt_plot" type="rqt_plot"
+          args="/current_joint_positions /target_joint_positions"
+          if="$(arg use_rviz)" />
+
+    <!-- 调试和测试 ===== -->
+    <node pkg="robot_arm_planner" type="curobo_collision_example.py" name="collision_example"
+          output="screen" if="$(arg simulation)"/>
+
+    <!-- ===== 控制器管理 (确保使用速度控制器) ===== -->
+    <node name="controller_manager_spawner" pkg="controller_manager" type="spawner" output="screen"
+          args="joint_state_controller joint_group_vel_controller speed_scaling_state_controller force_torque_sensor_controller"/>
+
+    <!-- ===== 切换控制器到速度模式 (如果需要) ===== -->
+    <node name="switch_to_velocity_controller" pkg="rosservice" type="rosservice"
+          args="/controller_manager/switch_controller
+          'start_controllers: [\"joint_group_vel_controller\"]
+          stop_controllers: [\"scaled_pos_joint_traj_controller\"]
+          strictness: 2
+          start_asap: false
+          timeout: 0.0'"
+          unless="$(arg simulation)"/>
+
+</launch>

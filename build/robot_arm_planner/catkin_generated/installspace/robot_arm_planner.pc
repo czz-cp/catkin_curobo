@@ -1,0 +1,8 @@
+prefix=/home/vispci/catkin/install
+
+Name: robot_arm_planner
+Description: Description of robot_arm_planner
+Version: 1.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: rospy std_msgs geometry_msgs sensor_msgs nav_msgs trajectory_msgs tf tf2_ros visualization_msgs std_srvs

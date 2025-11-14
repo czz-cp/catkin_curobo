@@ -1,0 +1,47 @@
+<launch>
+    <!-- cuRobo防碰撞机械臂路径规划器启动文件 -->
+    <!-- 基于cuRobo内置SDF/ESDF碰撞检测，无需外部ORCA -->
+
+    <!-- ===== 参数 ===== -->
+    <arg name="config_file" default="$(find robot_arm_planner)/config/curobo_collision_config.yaml"/>
+    <arg name="use_rviz" default="true"/>
+
+    <!-- ===== cuRobo防碰撞规划器 ===== -->
+    <node pkg="robot_arm_planner" type="curobo_collision_planner.py" name="curobo_collision_planner" output="screen">
+        <param name="config_file" value="$(arg config_file)"/>
+
+        <!-- 机械臂话题映射 -->
+        <remap from="current_pose" to="/ur10e/tool0_pose"/>
+        <remap from="goal_pose" to="/goal_pose"/>
+        <remap from="joint_states" to="/joint_states"/>
+        <remap from="planned_trajectory" to="/curobo/planned_trajectory"/>
+
+        <!-- NavRL ESDF话题映射 -->
+        <remap from="/arm_esdf_map/esdf" to="/arm_esdf_map/esdf"/>
+
+        <!-- 碰撞检测输出 -->
+        <remap from="collision_free_trajectory" to="/curobo/collision_free_trajectory"/>
+    </node>
+
+    <!-- ===== 话题重映射 ===== -->
+    <!-- 确保cuRobo规划器接收NavRL的ESDF数据 -->
+    <remap from="/curobo_collision_planner/arm_esdf_map/esdf" to="/arm_esdf_map/esdf"/>
+
+    <!-- 碰撞检测状态发布 -->
+    <remap from="/curobo_collision_planner/collision_status" to="/curobo_collision_status"/>
+
+    <!-- ===== 可视化 ===== -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find robot_arm_planner)/config/curobo_collision.rviz"
+          if="$(arg use_rviz)" />
+
+    <!-- ===== 调试信息 ===== -->
+    <node name="collision_monitor" pkg="rqt_plot" type="rqt_plot"
+          args="/curobo_collision_status"
+          if="$(arg use_rviz)" />
+
+    <node name="system_graph" pkg="rqt_graph" type="rqt_graph"
+          args="-f '/joint_states|/arm_esdf_map/esdf|/curobo/*|/collision_free_trajectory'"
+          if="$(arg use_rviz)" />
+
+</launch>

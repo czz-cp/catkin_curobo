@@ -1,0 +1,194 @@
+# cuRobo防碰撞配置文件
+# 专门为UR10e机械臂与NavRL ESDF集成设计
+
+# cuRobo配置
+curobo:
+  # cuRobo机器人配置文件
+  robot_config_file: "ur10e.yml"
+
+  # cuRobo世界配置文件
+  world_config_file: "collision_table.yml"
+
+# 机械臂参数
+robot:
+  joint_names:
+    - shoulder_pan_joint
+    - shoulder_lift_joint
+    - elbow_joint
+    - wrist_1_joint
+    - wrist_2_joint
+    - wrist_3_joint
+
+  # 碰撞球体配置 (每个球体: [x, y, z, radius] 相对于link坐标系)
+  collision_spheres:
+    base_link:
+      - [0.0, 0.0, 0.0, 0.1]      # 基座球体
+
+    shoulder_link:
+      - [0.0, 0.0, 0.15, 0.08]    # 肩部球体
+
+    upper_arm_link:
+      - [0.0, 0.0, 0.15, 0.06]    # 上臂球体
+      - [0.0, 0.0, 0.30, 0.06]    # 上臂球体2
+
+    forearm_link:
+      - [0.0, 0.0, 0.15, 0.05]    # 前臂球体
+      - [0.0, 0.0, 0.30, 0.05]    # 前臂球体2
+
+    wrist_1_link:
+      - [0.0, 0.0, 0.05, 0.04]    # 腕部球体1
+
+    wrist_2_link:
+      - [0.0, 0.0, 0.05, 0.04]    # 腕部球体2
+
+    wrist_3_link:
+      - [0.0, 0.0, 0.05, 0.04]    # 腕部球体3
+
+    tool0:
+      - [0.0, 0.0, 0.0, 0.03]      # 末端执行器球体
+      - [0.05, 0.0, 0.0, 0.02]    # 末端��伸球体
+      - [0.0, 0.05, 0.0, 0.02]    # 末端延伸球体2
+
+# cuRobo防碰撞参数
+collision:
+  # 激活距离：开始计算碰撞成本的距离 (m)
+  activation_distance: 0.02              # 2cm - 高精度机械臂环境
+
+  # 碰撞权重：碰撞成本的权重因子
+  collision_weight: 100.0                # 高权重确保安全
+
+  # 速度度量：是否启用速度相关的碰撞成本
+  use_speed_metric: true                  # 启用 - 防止高速穿过障碍物
+
+  # 扫掠体积：是否检查轨迹扫掠体积
+  use_sweep: true                         # 启用 - 考虑运动轨迹
+
+  # 扫掠步数：轨迹插值步数
+  sweep_steps: 8                          # 8步 - 提高精度
+
+  # 速度时间步长：用于速度度量的dt
+  speed_dt: 0.01                          # 10ms
+
+  # 累积碰撞：是否累积所有球体的碰撞
+  sum_collisions: true                    # 启用 - 全面碰撞检测
+
+  # 累积距离：是否累积所有距离
+  sum_distance: true                      # 启用 - 综合距离计算
+
+# NavRL ESDF集成
+navrl_esdf:
+  # ESDF分辨率 (必须与NavRL配置一致)
+  voxel_size: 0.02                        # 2cm
+
+  # 工作空间边界 (必须与NavRL map_size一致)
+  workspace_bounds:
+    x: [-1.0, 1.0]                        # 2m宽
+    y: [-1.0, 1.0]                        # 2m长
+    z: [0.0, 2.0]                         # 2m高
+
+  # ESDF更新频率
+  update_frequency: 20.0                  # 20Hz (与NavRL同步)
+
+  # 缓存大小
+  cache_size: 1000                        # 1000个体素缓存
+
+# 路径规划参数
+planning:
+  # 最大规划时间 (s)
+  max_planning_time: 5.0
+
+  # 轨迹插值密度
+  trajectory_density: 0.01               # 1cm间隔
+
+  # 最小路径段长度
+  min_segment_length: 0.05               # 5cm
+
+  # 关节速度限制 (rad/s)
+  joint_velocity_limits:
+    shoulder_pan_joint: 1.0
+    shoulder_lift_joint: 1.0
+    elbow_joint: 2.0
+    wrist_1_joint: 2.0
+    wrist_2_joint: 2.0
+    wrist_3_joint: 2.0
+
+  # 关节加速度限制 (rad/s²)
+  joint_acceleration_limits:
+    shoulder_pan_joint: 2.0
+    shoulder_lift_joint: 2.0
+    elbow_joint: 4.0
+    wrist_1_joint: 4.0
+    wrist_2_joint: 4.0
+    wrist_3_joint: 4.0
+
+# 可视化参数
+visualization:
+  # 是否发布碰撞标记
+  publish_collision_markers: true
+
+  # 标记更新频率
+  marker_update_frequency: 10.0
+
+  # 碰撞球体可视化
+  show_collision_spheres: true
+
+  # 轨迹可视化
+  show_trajectory: true
+
+  # 安全区域可视化
+  show_safety_region: false
+
+# 动态重规划参数
+dynamic_replanning:
+  # 启��动态重规划
+  enable: true
+
+  # 重规划频率 (Hz)
+  frequency: 10.0
+
+  # 障碍物距离阈值 (m)
+  obstacle_threshold: 0.1
+
+  # 重规划超时 (s)
+  replanning_timeout: 2.0
+
+  # 最大重规划尝试次数
+  max_replanning_attempts: 3
+
+  # 检测到动态障碍物时的行为
+  obstacle_detected_behavior: "replan"  # "replan" 或 "stop"
+
+# 调试参数
+debug:
+  # 启用详细日志
+  verbose_logging: false
+
+  # 发布碰撞成本
+  publish_collision_cost: true
+
+  # 发布距离场
+  publish_distance_field: false
+
+  # 性能监控
+  enable_profiling: false
+
+  # 动态重规划调试
+  dynamic_replanning_debug: false
+  log_replanning_events: true
+
+# 安全边界参数
+safety_boundaries:
+  # 工作空间边界 (m)
+  workspace_limit:
+    x: 1.5
+    y: 1.5
+    z: 1.8
+
+  # 关节限制安全余量 (rad)
+  joint_limit_margin: 0.1
+
+  # 自碰撞检测
+  self_collision_check: true
+
+  # 自碰撞距离阈值 (m)
+  self_collision_threshold: 0.05

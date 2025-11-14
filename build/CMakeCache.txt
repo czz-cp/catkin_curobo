@@ -1266,6 +1266,9 @@ mpc_tracking_BINARY_DIR:STATIC=/home/vispci/catkin/build/mpc_tracking
 //Value Computed by CMake
 mpc_tracking_SOURCE_DIR:STATIC=/home/vispci/catkin/src/mpc_tracking
 
+//The directory containing a CMake configuration file for nav_msgs.
+nav_msgs_DIR:PATH=/opt/ros/noetic/share/nav_msgs/cmake
+
 //Value Computed by CMake
 navigation_runner_BINARY_DIR:STATIC=/home/vispci/catkin/build/ros1/navigation_runner
 
@@ -1794,6 +1797,12 @@ quadcopterPlugin_LIB_DEPENDS:STATIC=general;/opt/ros/noetic/lib/libtf2_ros.so;ge
 //The directory containing a CMake configuration file for random_numbers.
 random_numbers_DIR:PATH=/opt/ros/noetic/share/random_numbers/cmake
 
+//Value Computed by CMake
+robot_arm_planner_BINARY_DIR:STATIC=/home/vispci/catkin/build/robot_arm_planner
+
+//Value Computed by CMake
+robot_arm_planner_SOURCE_DIR:STATIC=/home/vispci/catkin/src/robot_arm_planner
+
 //The directory containing a CMake configuration file for rosconsole.
 rosconsole_DIR:PATH=/opt/ros/noetic/share/rosconsole/cmake
 
@@ -1841,6 +1850,9 @@ srdfdom_DIR:PATH=/opt/ros/noetic/share/srdfdom/cmake
 
 //The directory containing a CMake configuration file for std_msgs.
 std_msgs_DIR:PATH=/opt/ros/noetic/share/std_msgs/cmake
+
+//The directory containing a CMake configuration file for std_srvs.
+std_srvs_DIR:PATH=/opt/ros/noetic/share/std_srvs/cmake
 
 //The directory containing a CMake configuration file for tf2.
 tf2_DIR:PATH=/opt/ros/noetic/share/tf2/cmake
@@ -2112,7 +2124,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=9
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=10
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP

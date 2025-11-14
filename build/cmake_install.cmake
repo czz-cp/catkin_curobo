@@ -147,6 +147,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/vispci/catkin/build/gtest/cmake_install.cmake")
   include("/home/vispci/catkin/build/mpc_tracking/cmake_install.cmake")
+  include("/home/vispci/catkin/build/robot_arm_planner/cmake_install.cmake")
   include("/home/vispci/catkin/build/ur10e_vs_node/cmake_install.cmake")
   include("/home/vispci/catkin/build/ros1/onboard_detector/cmake_install.cmake")
   include("/home/vispci/catkin/build/ros1/map_manager/cmake_install.cmake")
